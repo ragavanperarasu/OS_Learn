@@ -1,0 +1,165 @@
+pass 2 of 2 pass assembler
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_SYMBOLS 100
+#define MAX_LITERALS 100
+#define MAX_LINE_LENGTH 100
+
+// Structure for Symbol Table
+typedef struct {
+    char label[20];
+    int address;
+} Symbol;
+
+// Structure for Literal Table
+typedef struct {
+    char literal[10];
+    int address;
+} Literal;
+
+// Global Tables
+Symbol symTable[MAX_SYMBOLS];
+Literal litTable[MAX_LITERALS];
+
+int symCount = 0, litCount = 0;
+
+// Function to load Symbol Table
+void loadSymbolTable() {
+    FILE *symFile = fopen("symbol_table.txt", "r");
+    if (symFile == NULL) {
+        printf("Error opening symbol table file!\n");
+        exit(1);
+    }
+
+    while (fscanf(symFile, "%s %d", symTable[symCount].label, &symTable[symCount].address) != EOF) {
+        symCount++;
+    }
+    fclose(symFile);
+}
+
+// Function to load Literal Table
+void loadLiteralTable() {
+    FILE *litFile = fopen("literal_table.txt", "r");
+    if (litFile == NULL) {
+        printf("Error opening literal table file!\n");
+        exit(1);
+    }
+
+    while (fscanf(litFile, "%s %d", litTable[litCount].literal, &litTable[litCount].address) != EOF) {
+        litCount++;
+    }
+    fclose(litFile);
+}
+
+// Function to get Symbol Address
+int getSymbolAddress(int index) {
+    if (index < symCount) {
+        return symTable[index].address;
+    }
+    return -1; // Error case
+}
+
+// Function to get Literal Address
+int getLiteralAddress(int index) {
+    if (index < litCount) {
+        return litTable[index].address;
+    }
+    return -1; // Error case
+}
+
+// Function to generate Machine Code with LC values
+void generateMachineCode() {
+    FILE *icFile = fopen("intermediate_code.txt", "r");
+    FILE *mcFile = fopen("machine_code.txt", "w");
+    if (icFile == NULL || mcFile == NULL) {
+        printf("Error opening files!\n");
+        exit(1);
+    }
+
+    char line[MAX_LINE_LENGTH], type[10], op[10], operand[10];
+    int lc, address;
+
+    printf("\nLC  OPCODE  OPERAND\n");
+    fprintf(mcFile, "LC  OPCODE  OPERAND\n");
+
+    while (fgets(line, MAX_LINE_LENGTH, icFile)) {
+        if (sscanf(line, "(%[^,],%[^)]) (%[^,],%d) [%d]", type, op, operand, &address, &lc) >= 4) {
+            if (strcmp(type, "AD") == 0) {
+                // Ignore Assembler Directives in Machine Code
+                continue;
+            } else if (strcmp(type, "IS") == 0) {
+                int finalAddress = (operand[0] == 'S') ? getSymbolAddress(address) : getLiteralAddress(address);
+                printf("%d   %s      %d\n", lc, op, finalAddress);
+                fprintf(mcFile, "%d   %s      %d\n", lc, op, finalAddress);
+            } else if (strcmp(type, "DL") == 0) {
+                printf("%d   %s      %d\n", lc, op, address);
+                fprintf(mcFile, "%d   %s      %d\n", lc, op, address);
+            }
+        }
+    }
+
+    fclose(icFile);
+    fclose(mcFile);
+    printf("\nMachine Code saved in 'machine_code.txt'\n");
+}
+
+int main() {
+    // Load tables
+    loadSymbolTable();
+    loadLiteralTable();
+
+    // Generate machine code
+    generateMachineCode();
+
+    return 0;
+}
+
+
+
+=================================
+symbol_table.txt
+
+LOOP 100
+VAR 106
+
+literal_table.txt
+
+='5' 105
+='10' 106
+='15' 107
+='20' 108
+
+
+intermediate_code.txt
+
+(AD,01) (C,100)
+(IS,04) (L,0) [100]
+(IS,01) (L,1) [101]
+(IS,02) (L,2) [102]
+(IS,03) (L,3) [103]
+(IS,00) (S,0) [104]
+(DL,01) (C,='5') [105]
+(DL,01) (C,='10') [106]
+(DL,01) (C,='15') [107]
+(DL,01) (C,='20') [108]
+
+
+==================================
+output
+=================================
+machine_code.txt
+
+LC  OPCODE  OPERAND
+100   04      105
+101   01      106
+102   02      107
+103   03      108
+104   00      100
+105   01      105
+106   01      106
+107   01      107
+108   01      108
+

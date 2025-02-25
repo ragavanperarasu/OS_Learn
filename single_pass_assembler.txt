@@ -1,0 +1,178 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+struct menumonic_table {
+    char op_code[7];
+    char class1[3];
+    char info[3];
+} nem[20];
+
+char symb[10][10], symb1[10][10];
+int add[10], add1[10];
+int mac[20][10];
+
+int checkreg(char var1[]) {
+    if (strcmp(var1, "AREG") == 0) return 1;
+    if (strcmp(var1, "BREG") == 0) return 2;
+    if (strcmp(var1, "CREG") == 0) return 3;
+    return 0;
+}
+
+int insert(char var[]) {
+    static int i = 1;
+    strcpy(symb1[i], var);
+    i++;
+    return 0;
+}
+
+int checksym(char var[]) {
+    static int i = 1;
+    for (int j = 1; j <= i; j++) {
+        if (strcmp(symb[j], var) == 0) return j;
+    }
+    strcpy(symb[i], var);
+    i++;
+    return 0;
+}
+
+int search(char var2[]) {
+    for (int i = 0; i < 19; i++) {
+        if (strcmp(var2, nem[i].op_code) == 0) return i;
+    }
+    return 20;
+}
+
+int main() {
+    int i, j, lc, sy, no, reg, num, m = 1, n = 1;
+    char var[256], var1[4][10];
+    char delim[] = " ";
+    FILE *f1, *f2;
+    
+    // Initialize mnemonic table
+    strcpy(nem[0].op_code, "ADD"); strcpy(nem[0].class1, "IS"); strcpy(nem[0].info, "01");
+    strcpy(nem[1].op_code, "MOVER"); strcpy(nem[1].class1, "IS"); strcpy(nem[1].info, "04");
+    strcpy(nem[2].op_code, "MOVEM"); strcpy(nem[2].class1, "IS"); strcpy(nem[2].info, "05");
+    strcpy(nem[3].op_code, "STOP"); strcpy(nem[3].class1, "IS"); strcpy(nem[3].info, "00");
+    strcpy(nem[4].op_code, "DS"); strcpy(nem[4].class1, "DL"); strcpy(nem[4].info, "01");
+    strcpy(nem[5].op_code, "DC"); strcpy(nem[5].class1, "DL"); strcpy(nem[5].info, "02");
+    
+    f1 = fopen("input.txt", "r");
+    f2 = fopen("output.txt", "w");
+    
+    while (fgets(var, sizeof(var), f1)) {
+        i = 0;
+        char *ptr = strtok(var, delim);
+        while (ptr != NULL) {
+            strcpy(var1[i], ptr);
+            ptr = strtok(NULL, delim);
+            i++;
+        }
+        j = i;
+        strtok(var1[0], "\n");
+        no = search(var1[0]);
+        
+        if (strcmp(var1[0], "START") == 0) {
+            lc = atoi(var1[1]);
+        }
+        if (strcmp(nem[no].info, "04") == 0 || strcmp(nem[no].info, "05") == 0) {
+            insert(var1[2]);
+            add1[n] = lc;
+            n++;
+            reg = checkreg(var1[1]);
+            mac[m][0] = lc;
+            mac[m][1] = atoi(nem[no].info);
+            mac[m][2] = reg;
+            lc++;
+            m++;
+        }
+        if (no == 20) {
+            int ad;
+            no = search(var1[1]);
+            sy = checksym(var1[0]);
+            add[sy] = lc;
+            reg = checkreg(var1[2]);
+            if (strcmp(nem[no].class1, "DL") == 0) {
+                ad = checksym(var1[0]);
+                add[ad] = lc;
+                mac[m][0] = lc;
+                mac[m][1] = 00;
+                mac[m][2] = 0;
+                mac[m][3] = (strcmp(nem[no].info, "02") == 0) ? atoi(var1[1]) : 1;
+                m++;
+            } else {
+                insert(var1[3]);
+                add1[n] = lc;
+                n++;
+                mac[m][0] = lc;
+                mac[m][1] = atoi(nem[no].info);
+                mac[m][2] = reg;
+                m++;
+            }
+            lc++;
+        }
+        if (strcmp(var1[0], "STOP") == 0) {
+            mac[m][0] = lc;
+            mac[m][1] = 00;
+            mac[m][2] = 0;
+            mac[m][3] = 000;
+            lc++;
+            m++;
+        }
+    }
+    fclose(f1);
+    
+    // Print machine code
+    for (i = 1; i < m; i++) {
+        printf("%d %d %d %d\n", mac[i][0], mac[i][1], mac[i][2], mac[i][3]);
+        fprintf(f2, "%d %d %d %d\n", mac[i][0], mac[i][1], mac[i][2], mac[i][3]);
+    }
+    fclose(f2);
+    return 0;
+}
+
+
+=============================================
+input: input.txt
+
+START 100
+MOVER AREG, X
+ADD BREG, Y
+MOVEM AREG, Z
+SUB CREG, X
+MULT AREG, Y
+STOP
+X DC 5
+Y DC 10
+Z DS 1
+END
+
+
+===================================================
+output: output.txt
+
+100 04 1 s1
+101 01 2 s2
+102 05 1 s3
+103 02 3 s1
+104 03 1 s2
+105 00 0 000
+106 00 0 005
+107 00 0 010
+108 00 0 001
+
+
+=============================================
+
+explanation
+
+Address	Opcode	Register	Operand
+100	04	1 (AREG)	s1 (X)
+101	01	2 (BREG)	s2 (Y)
+102	05	1 (AREG)	s3 (Z)
+103	02	3 (CREG)	s1 (X)
+104	03	1 (AREG)	s2 (Y)
+105	00	0	        000 (STOP)
+106	00	0	        5 (X = 5)
+107	00	0	        10 (Y = 10)
+108	00	0	        1 (Z = 1, reserved storage)

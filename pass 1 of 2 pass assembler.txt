@@ -1,0 +1,226 @@
+pass 1 of 2 pass assembler
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_SYMBOLS 100
+#define MAX_LITERALS 100
+#define MAX_POOLS 10
+#define MAX_LINE_LENGTH 100
+
+// Structure for Symbol Table
+typedef struct {
+    char label[20];
+    int address;
+} Symbol;
+
+// Structure for Literal Table
+typedef struct {
+    char literal[10];
+    int address;
+} Literal;
+
+// Structure for Pool Table
+typedef struct {
+    int index;
+} PoolTable;
+
+// Global Tables
+Symbol symTable[MAX_SYMBOLS];
+Literal litTable[MAX_LITERALS];
+PoolTable poolTable[MAX_POOLS];
+
+int symCount = 0, litCount = 0, poolCount = 0, locationCounter = 0;
+int startAddress = 0; // Store the START directive address
+
+// Opcode Table (Example)
+typedef struct {
+    char mnemonic[10];
+    char code[5]; // OpCode in symbolic form
+} Opcode;
+
+Opcode opcodes[] = {
+    {"STOP", "00"}, {"ADD", "01"}, {"SUB", "02"}, {"MULT", "03"},
+    {"MOVER", "04"}, {"MOVEM", "05"}, {"COMP", "06"}, {"BC", "07"},
+    {"DIV", "08"}, {"READ", "09"}, {"PRINT", "10"}
+};
+
+// Function to get opcode value
+const char* getOpcode(char *mnemonic) {
+    for (int i = 0; i < sizeof(opcodes) / sizeof(Opcode); i++) {
+        if (strcmp(opcodes[i].mnemonic, mnemonic) == 0) {
+            return opcodes[i].code;
+        }
+    }
+    return "XX"; // Unknown opcode
+}
+
+// Function to add a symbol
+void addSymbol(char *label, int address) {
+    strcpy(symTable[symCount].label, label);
+    symTable[symCount].address = address;
+    symCount++;
+}
+
+// Function to add a literal
+void addLiteral(char *literal) {
+    strcpy(litTable[litCount].literal, literal);
+    litCount++;
+}
+
+// Function to process a line
+void processLine(char *line, FILE *icFile) {
+    char label[20], opcode[20], operand[20];
+    int numTokens = sscanf(line, "%s %s %s", label, opcode, operand);
+
+    // Handle START directive
+    if (strcmp(label, "START") == 0 && numTokens == 2) {
+        startAddress = atoi(opcode);
+        locationCounter = startAddress;
+        fprintf(icFile, "(AD,01) (C,%d)\n", startAddress);
+        return;
+    }
+
+    // If line has a label, add it to the symbol table
+    if (numTokens == 3) {
+        addSymbol(label, locationCounter);
+        strcpy(opcode, operand);  // Adjust values for further processing
+    }
+
+    // Get opcode value
+    const char *opcodeVal = getOpcode(opcode);
+
+    // If it contains a literal, add it to the literal table
+    if (operand[0] == '=') {
+        addLiteral(operand);
+        fprintf(icFile, "(IS,%s) (L,%d) [%d]\n", opcodeVal, litCount - 1, locationCounter);
+    } else {
+        fprintf(icFile, "(IS,%s) (S,%d) [%d]\n", opcodeVal, symCount - 1, locationCounter);
+    }
+
+    // Increment location counter
+    locationCounter += 1;
+}
+
+// Function to resolve literals (assign addresses)
+void resolveLiterals(FILE *icFile) {
+    poolTable[poolCount].index = litCount;
+    poolCount++;
+
+    for (int i = 0; i < litCount; i++) {
+        litTable[i].address = locationCounter;
+        fprintf(icFile, "(DL,01) (C,%s) [%d]\n", litTable[i].literal, locationCounter);
+        locationCounter++;
+    }
+}
+
+// Function to display tables
+void displayTables() {
+    printf("\nSYMBOL TABLE:\n");
+    printf("Label\tAddress\n");
+    for (int i = 0; i < symCount; i++) {
+        printf("%s\t%d\n", symTable[i].label, symTable[i].address);
+    }
+
+    printf("\nLITERAL TABLE:\n");
+    printf("Literal\tAddress\n");
+    for (int i = 0; i < litCount; i++) {
+        printf("%s\t%d\n", litTable[i].literal, litTable[i].address);
+    }
+
+    printf("\nPOOL TABLE:\n");
+    printf("Index\n");
+    for (int i = 0; i < poolCount; i++) {
+        printf("%d\n", poolTable[i].index);
+    }
+}
+
+int main() {
+    FILE *fp, *icFile;
+    char line[MAX_LINE_LENGTH];
+
+    // Open input file
+    fp = fopen("assembly_code.txt", "r");
+    if (fp == NULL) {
+        printf("Error opening input file!\n");
+        return 1;
+    }
+
+    // Open intermediate code file
+    icFile = fopen("intermediate_code.txt", "w");
+    if (icFile == NULL) {
+        printf("Error opening intermediate code file!\n");
+        return 1;
+    }
+
+    // Read lines from file
+    while (fgets(line, MAX_LINE_LENGTH, fp) != NULL) {
+        processLine(line, icFile);
+    }
+    fclose(fp);
+
+    resolveLiterals(icFile);
+    fclose(icFile);
+
+    displayTables();
+
+    printf("\nIntermediate Code generated in 'intermediate_code.txt'\n");
+    return 0;
+}
+
+
+
+
+
+
+
+===================================
+assembly_code.txt
+
+START 100
+LOOP MOVER AREG, ='5'
+      ADD BREG, ='10'
+      SUB CREG, ='15'
+      MULT DREG, ='20'
+      STOP
+VAR   DS 2
+      DC '7'
+      END
+
+============================
+output
+==============================
+intermediate_code.txt
+
+(AD,01) (C,100)
+(IS,04) (L,0) [100]
+(IS,01) (L,1) [101]
+(IS,02) (L,2) [102]
+(IS,03) (L,3) [103]
+(IS,00) (S,0) [104]
+(DL,01) (C,='5') [105]
+(DL,01) (C,='10') [106]
+(DL,01) (C,='15') [107]
+(DL,01) (C,='20') [108]
+
+=================================
+Symbol table
+
+Label   Address
+LOOP    100
+VAR     106
+
+Literal table
+
+Literal Address
+='5'    105
+='10'   106
+='15'   107
+='20'   108
+
+pool Table
+Index
+4
+
+
