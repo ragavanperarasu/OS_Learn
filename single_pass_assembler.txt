@@ -9,8 +9,9 @@ struct menumonic_table {
 } nem[20];
 
 char symb[10][10], symb1[10][10];
-int add[10], add1[10];
+int add[10], add1[10], incomplete[10];
 int mac[20][10];
+int incomplete_count = 0;
 
 int checkreg(char var1[]) {
     if (strcmp(var1, "AREG") == 0) return 1;
@@ -32,6 +33,7 @@ int checksym(char var[]) {
         if (strcmp(symb[j], var) == 0) return j;
     }
     strcpy(symb[i], var);
+    incomplete[incomplete_count++] = i; // Mark as incomplete
     i++;
     return 0;
 }
@@ -122,57 +124,22 @@ int main() {
     }
     fclose(f1);
     
-    // Print machine code
+    // Print tables
+    printf("\nMachine Code Table:\n");
     for (i = 1; i < m; i++) {
         printf("%d %d %d %d\n", mac[i][0], mac[i][1], mac[i][2], mac[i][3]);
-        fprintf(f2, "%d %d %d %d\n", mac[i][0], mac[i][1], mac[i][2], mac[i][3]);
     }
+    
+    printf("\nSymbol Table:\n");
+    for (i = 1; i < n; i++) {
+        printf("%s -> %d\n", symb1[i], add1[i]);
+    }
+    
+    printf("\nIncomplete Instruction Table:\n");
+    for (i = 0; i < incomplete_count; i++) {
+        printf("%s -> %d (Undefined)\n", symb[incomplete[i]], add[incomplete[i]]);
+    }
+    
     fclose(f2);
     return 0;
 }
-
-
-=============================================
-input: input.txt
-
-START 100
-MOVER AREG, X
-ADD BREG, Y
-MOVEM AREG, Z
-SUB CREG, X
-MULT AREG, Y
-STOP
-X DC 5
-Y DC 10
-Z DS 1
-END
-
-
-===================================================
-output: output.txt
-
-100 04 1 s1
-101 01 2 s2
-102 05 1 s3
-103 02 3 s1
-104 03 1 s2
-105 00 0 000
-106 00 0 005
-107 00 0 010
-108 00 0 001
-
-
-=============================================
-
-explanation
-
-Address	Opcode	Register	Operand
-100	04	1 (AREG)	s1 (X)
-101	01	2 (BREG)	s2 (Y)
-102	05	1 (AREG)	s3 (Z)
-103	02	3 (CREG)	s1 (X)
-104	03	1 (AREG)	s2 (Y)
-105	00	0	        000 (STOP)
-106	00	0	        5 (X = 5)
-107	00	0	        10 (Y = 10)
-108	00	0	        1 (Z = 1, reserved storage)
