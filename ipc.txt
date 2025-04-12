@@ -1,0 +1,295 @@
+Detailed Algorithm for Bidirectional Pipe Communication in Java
+
+Step 1: Initialize Pipes
+	Create two sets of pipes:
+
+	Pipe 1 (Parent → Child):
+
+		PipedOutputStream parentToChildOut (Parent writes)
+
+		PipedInputStream childIn (Child reads)
+
+	Pipe 2 (Child → Parent):
+
+		PipedOutputStream childToParentOut (Child writes)
+
+		PipedInputStream parentIn (Parent reads)
+
+	Connect the pipes:
+
+		childIn is connected to parentToChildOut
+
+		parentIn is connected to childToParentOut
+
+Step 2: Create and Start Parent Thread
+	1)Write a message to Pipe 1 (Parent → Child).
+
+		Write "GCT" into parentToChildOut.
+
+		Close parentToChildOut after writing.
+
+	2)Read a message from Pipe 2 (Child → Parent).
+
+		Read data from parentIn.
+
+		Convert the received bytes into a string.
+
+		Print the received message.
+
+		Close parentIn after reading.
+
+Step 3: Create and Start Child Thread
+	Read a message from Pipe 1 (Parent → Child).
+
+		Read data from childIn.
+
+		Convert the received bytes into a string.
+
+		Print the received message.
+
+		Close childIn after reading.
+
+	Write a message to Pipe 2 (Child → Parent).
+
+		Write "CSE" into childToParentOut.
+
+		Close childToParentOut after writing.
+
+Step 4: Start Both Threads
+	Start the Parent Thread.
+
+	Start the Child Thread.
+
+	Both threads run in parallel, ensuring bidirectional communication.
+
+Step 5: Close Streams
+	Ensure all streams are closed properly to avoid memory leaks.
+
+	Each thread should close its output stream after writing.
+
+	Each thread should close its input stream after reading.
+
+=================================================
+
+import java.io.*;
+
+public class PipeCommunication {
+    public static void main(String[] args) throws IOException {
+        // Create pipes for bidirectional communication
+        PipedOutputStream parentToChildOut = new PipedOutputStream();
+        PipedInputStream childIn = new PipedInputStream(parentToChildOut);
+        
+        PipedOutputStream childToParentOut = new PipedOutputStream();
+        PipedInputStream parentIn = new PipedInputStream(childToParentOut);
+
+        // Parent Thread
+        Thread parentThread = new Thread(() -> {
+            try {
+                String message1 = "GCT";
+                System.out.println("In Parent: Writing to pipe 1 – Message is " + message1);
+                parentToChildOut.write(message1.getBytes());
+                parentToChildOut.close();
+
+                // Read response from child
+                byte[] buffer = new byte[20];
+                int bytesRead = parentIn.read(buffer);
+                String response = new String(buffer, 0, bytesRead);
+                System.out.println("In Parent: Reading from pipe 2 – Message is " + response);
+
+                parentIn.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+
+        // Child Thread
+        Thread childThread = new Thread(() -> {
+            try {
+                // Read from parent
+                byte[] buffer = new byte[20];
+                int bytesRead = childIn.read(buffer);
+                String receivedMessage = new String(buffer, 0, bytesRead);
+                System.out.println("In Child: Reading from pipe 1 – Message is " + receivedMessage);
+
+                // Send response
+                String message2 = "CSE";
+                System.out.println("In Child: Writing to pipe 2 – Message is " + message2);
+                childToParentOut.write(message2.getBytes());
+                childToParentOut.close();
+                
+                childIn.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+
+        // Start Threads
+        parentThread.start();
+        childThread.start();
+    }
+}
+
+
+============================================================
+
+output : 
+
+In Parent: Writing to pipe 1 – Message is GCT
+In Child: Reading from pipe 1 – Message is GCT
+In Child: Writing to pipe 2 – Message is CSE
+In Parent: Reading from pipe 2 – Message is CSE
+
+
+===============================================================
+=======================================================================
+=============================================================
+
+
+Algorithm for Server (SimpleServer.java)
+
+Step 1: Import Required Libraries
+Import java.io.* for input and output handling.
+
+Import java.net.* for networking operations.
+
+Step 2: Initialize Server Socket
+Create a ServerSocket object on port 5000.
+
+Print "Server is waiting for a client..." to indicate that the server is ready.
+
+Step 3: Accept Client Connection
+Use accept() method to block execution until a client connects.
+
+Print "Client connected!" once a client establishes a connection.
+
+Step 4: Read Data from Client
+Create a BufferedReader to read input from the client.
+
+Read a message from the client using readLine().
+
+Print the received message: "Client says: [message]".
+
+Step 5: Send Response to Client
+Create a PrintWriter to send a response back to the client.
+
+Write "Hello, Client! Message Received." using println().
+
+Step 6: Close Connections
+Close the client socket using socket.close().
+
+Close the server socket using serverSocket.close().
+
+======================================================
+
+import java.io.*;
+import java.net.*;
+
+public class SimpleServer {
+    public static void main(String[] args) {
+        try {
+            // Step 1: Create a server socket on port 5000
+            ServerSocket serverSocket = new ServerSocket(5000);
+            System.out.println("Server is waiting for a client...");
+
+            // Step 2: Accept client connection
+            Socket socket = serverSocket.accept();
+            System.out.println("Client connected!");
+
+            // Step 3: Read message from client
+            BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String clientMessage = input.readLine();
+            System.out.println("Client says: " + clientMessage);
+
+            // Step 4: Send response to client
+            PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
+            output.println("Hello, Client! Message Received.");
+
+            // Step 5: Close connections
+            socket.close();
+            serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+==============================================================
+
+Algorithm for Client (SimpleClient.java)
+Step 1: Import Required Libraries
+Import java.io.* for handling input and output operations.
+
+Import java.net.* for networking capabilities.
+
+Step 2: Connect to the Server
+Create a Socket object to connect to localhost on port 5000.
+
+Print "Connected to Server!" after a successful connection.
+
+Step 3: Send a Message to the Server
+Create a PrintWriter to send a message.
+
+Write "Hello, Server!" to the server using println().
+
+Step 4: Receive Response from Server
+Create a BufferedReader to read the response.
+
+Read the server’s message using readLine().
+
+Print "Server says: [message]".
+
+Step 5: Close Connection
+Close the client socket using socket.close().
+
+
+=============================================================
+
+
+import java.io.*;
+import java.net.*;
+
+public class SimpleClient {
+    public static void main(String[] args) {
+        try {
+            // Step 1: Connect to server at localhost, port 5000
+            Socket socket = new Socket("localhost", 5000);
+            System.out.println("Connected to Server!");
+
+            // Step 2: Send message to server
+            PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
+            output.println("Hello, Server!");
+
+            // Step 3: Read response from server
+            BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String serverMessage = input.readLine();
+            System.out.println("Server says: " + serverMessage);
+
+            // Step 4: Close connection
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+====================================================
+
+outputs:
+
+Run the Client in Another Terminal
+
+output for client:
+
+Connected to Server!
+Server says: Hello, Client! Message Received.
+
+
+Server Output (after client connects)
+
+output for server:
+
+Client connected!
+Client says: Hello, Server!
+

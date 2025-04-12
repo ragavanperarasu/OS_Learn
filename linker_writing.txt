@@ -1,0 +1,232 @@
+linker program 
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Function to check if a given address exists in an array
+int checkaddr(char var[], int arr[], int n) {
+    int m = atoi(var);
+    for (int i = 0; i < n; i++) {
+        if (m == arr[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int main() {
+    char str[60], var[10], ext1[10];
+    FILE *f1, *f2, *f3, *f4, *f5, *f6;
+    
+    // Open input files (Ensure these files exist in the working directory)
+    f1 = fopen("./relocat_linker_input1.txt", "r");
+    if (f1 == NULL) {
+        perror("Error opening relocat_linker_input1.txt");
+        return 1;
+    }
+
+    fscanf(f1, "%s", var);
+    int origin1 = atoi(var);
+    fclose(f1);
+
+    f2 = fopen("./relocat_linker_input2.txt", "r");
+    if (f2 == NULL) {
+        perror("Error opening relocat_linker_input2.txt");
+        return 1;
+    }
+
+    fscanf(f2, "%s", var);
+    int origin2 = atoi(var);
+    fclose(f2);
+
+    int size1 = 16, result_origin = 900;
+    int relocation_factor1 = result_origin - origin1;
+    int relocation_factor2 = (result_origin + size1) - origin2;
+
+    printf("MODULE P \nORIGIN: %d\nRELOCATION FACTOR: %d\nTARGET ORIGIN: %d\n", 
+            origin1, relocation_factor1, result_origin);
+    printf("\nMODULE Q\nORIGIN: %d\nTARGET ORIGIN: %d\nRELOCATION FACTOR: %d\n", 
+            origin2, result_origin + size1, relocation_factor2);
+
+    // Creating NTAB
+    f6 = fopen("./ntab.txt", "w");
+    if (f6 == NULL) {
+        perror("Error creating ntab.txt");
+        return 1;
+    }
+
+    fprintf(f6, "P\t%d\n", result_origin);
+    
+    f4 = fopen("./linktab1.txt", "r");
+    if (f4 == NULL) {
+        perror("Error opening linktab1.txt");
+        return 1;
+    }
+
+    while (fgets(str, sizeof(str), f4)) {
+        strtok(str, "\n");
+        char link[3][10];
+        int y = 0;
+        char *ptr = strtok(str, "\t");
+        while (ptr != NULL) {
+            strcpy(link[y], ptr);
+            ptr = strtok(NULL, "\t");
+            y++;
+        }
+        if (strcmp(link[1], "PD") == 0) {
+            int temp = atoi(link[2]) + relocation_factor1;
+            fprintf(f6, "%s\t%d\n", link[0], temp);
+        }
+        if (strcmp(link[1], "EXT") == 0) {
+            strcpy(ext1, link[0]);
+        }
+    }
+    fclose(f4);
+    fclose(f6);
+
+    // Open input files for processing addresses
+    f1 = fopen("./relocat_linker_input1.txt", "r");
+    if (f1 == NULL) {
+        perror("Error opening relocat_linker_input1.txt");
+        return 1;
+    }
+
+    int arr1[50], line = 0;
+    while (fscanf(f1, "%s", var) != EOF) {
+        arr1[line] = atoi(var);
+        line++;
+    }
+    fclose(f1);
+
+    f3 = fopen("./linker_input1.txt", "r");
+    f5 = fopen("./linker_output.txt", "w");
+    if (f3 == NULL || f5 == NULL) {
+        perror("Error opening linker input/output files");
+        return 1;
+    }
+
+    char str2[60];
+    while (fgets(str2, sizeof(str2), f3)) {
+        strtok(str2, "\n");
+        char var1[4][10];
+        int i = 0;
+        char *ptr = strtok(str2, " ");
+        while (ptr != NULL) {
+            strcpy(var1[i], ptr);
+            ptr = strtok(NULL, " ");
+            i++;
+        }
+        int result = checkaddr(var1[0], arr1, line);
+        int c;
+        if (result == 1) {
+            for (int x = 0; x < i; x++) {
+                c = atoi(var1[x]);
+                if (x == 0 || x == 3) {
+                    c += relocation_factor1;
+                }
+                fprintf(f5, "%d ", c);
+            }
+            fprintf(f5, "\n");
+        } else {
+            for (int x = 0; x < i; x++) {
+                c = atoi(var1[x]);
+                if (x == 0) {
+                    c += relocation_factor1;
+                }
+                fprintf(f5, "%d ", c);
+            }
+            fprintf(f5, "\n");
+        }
+    }
+    
+    fclose(f3);
+    fclose(f5);
+
+    printf("\nEXTERN:\nLINKTAB ADDRESS: %d\nTARGET ADDRESS: %d\nNAME OF THE EXTERN: %s\n", 
+            origin1, origin2, ext1);
+
+    return 0;
+}
+
+
+
+
+============================================================================
+
+Expected Output (Example)
+
+MODULE P 
+ORIGIN: 601
+RELOCATION FACTOR: 299
+TARGET ORIGIN: 900
+
+MODULE Q
+ORIGIN: 200
+TARGET ORIGIN: 916
+RELOCATION FACTOR: 716
+
+EXTERN:
+LINKTAB ADDRESS: 601
+TARGET ADDRESS: 200
+NAME OF THE EXTERN: ALPHA
+
+
+========================================================================
+
+input files 
+
+relocat_linker_input1.txt
+
+601
+
+
+------------------------------------
+
+relocat_linker_input2.txt
+
+200
+
+
+-------------------------------------
+
+linktab1.txt
+
+ALPHA	EXT	-
+BETA	PD	400
+GAMMA	PD	500
+
+
+--------------------------------------
+
+linker_input1.txt
+
+400 1 0 500
+401 2 0 600
+402 3 0 700
+
+
+================================================================
+
+Algorithm
+
+1.program_linked_origin:=<link origin>from linker command;
+2.For each object module
+ a) t_origin:=translation  origin of the object  module;
+om_size:=size of the object  module ;
+  b)relocation_factor:=program_linked_origin -t_origin;
+ c)read the machine language  program  in work_area.
+ d)read LINKTAB of the object  module.
+e)For each LINKTAB entry with type =PD
+	name:=symbol;
+	linked_address:=translation_address+relocationfactor;
+	Enter(name,linked_address)in NTAB;
+f)Enter(object module name,program_linked_origin)in DTAB;
+g)program_linked_origin:=program_linked_origin+om_size;
+3.For each object module 
+a)t_origin:=translation origin of object  module;
+Program_linked_origin:=load address from NTAB;
+b)For each LINKTAB  entry with  type=EXT;
+i)address_in_work area:=address of work  area + program_linked_origin-<link origin> + translation origin - t_origin;
+ ii)Search symbol  in NTAB and COPY its linked address  add the linked address  to operand address  in the word with the address  address_in_work_area.

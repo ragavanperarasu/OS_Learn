@@ -1,0 +1,56 @@
+# Case Study: Loaders in Operating Systems
+
+## 1. Introduction
+A loader is a crucial system software component in an operating system that loads executable programs into memory for execution. It is responsible for preparing a program for execution by performing various tasks such as memory allocation, relocation, and linking. This case study explores different types of loaders, their functionalities, and real-world applications.
+
+## 2. Role of Loaders in an Operating System
+Loaders perform the following key tasks:
+- **Loading:** Reads executable files and places them in main memory.
+- **Relocation:** Adjusts program addresses to match available memory locations.
+- **Linking:** Resolves external references in the program code.
+- **Program Execution:** Transfers control to the loaded program.
+
+## 3. Types of Loaders
+### a) **Absolute Loader**
+- Loads an executable file directly into a predefined memory address.
+- Requires no modification before execution.
+- Example: Early bootstrap loaders in embedded systems.
+
+### b) **Relocating Loader**
+- Adjusts addresses dynamically to fit available memory.
+- Helps in multiprogramming and dynamic memory allocation.
+- Example: Linux ELF (Executable and Linkable Format) loader.
+
+### c) **Dynamic Linking Loader**
+- Links external libraries at runtime instead of compile-time.
+- Reduces memory usage by sharing libraries among multiple programs.
+- Example: Windows Dynamic Link Libraries (DLLs).
+
+### d) **Bootstrap Loader**
+- Loads the operating system when a computer starts.
+- Stored in ROM (Read-Only Memory).
+- Example: BIOS or UEFI firmware loaders.
+
+## 4. Case Study: Loader in Linux OS
+In Linux-based systems, the loader plays a critical role in executing programs. When a user runs a command like `./a.out`, the Linux loader follows these steps:
+1. Reads the ELF (Executable and Linkable Format) file.
+2. Allocates memory for the program and its dependencies.
+3. Loads shared libraries dynamically.
+4. Resolves symbols and links them at runtime.
+5. Transfers control to the program's entry point.
+
+### **Example:**
+If a C program depends on `libm.so` (math library), the loader dynamically links it using `ld-linux.so`, reducing redundancy and improving memory efficiency.
+
+## 5. Conclusion
+Loaders are essential components of modern operating systems, ensuring efficient program execution. By handling memory allocation, linking, and relocation, loaders improve system performance and resource utilization. The evolution of loaders has led to advanced techniques like Just-In-Time (JIT) loading, further optimizing execution time.
+
+### **Key Takeaways:**
+- Loaders handle program loading, relocation, and linking.
+- Different types of loaders serve specific use cases.
+- Linux and Windows use dynamic linking to enhance efficiency.
+- Future advancements in loaders may involve AI-driven optimizations.
+
+This case study provides an overview of loaders and their significance in operating systems. Their role continues to evolve with advancements in computing technology.
+
+

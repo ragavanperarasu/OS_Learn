@@ -1,0 +1,423 @@
+
+
+
+
+#include <stdio.h>
+#include <string.h>
+
+char pntab[10][10], evtab[10][10], kpdtab[10][10], ssntab[10][10];
+int pn = 0, ev = 0, ssn = 0, kp = 0;
+
+int checkpn(char var[])
+{
+    for (int j = 0; j < pn; j++)
+        if (strcmp(pntab[j], var) == 0)
+            return j + 1;
+    return 0;
+}
+
+int checkev(char var[])
+{
+    for (int j = 0; j < ev; j++)
+        if (strcmp(evtab[j], var) == 0)
+            return j + 1;
+    return 0;
+}
+
+int checkssn(char var[])
+{
+    for (int j = 0; j < ssn; j++)
+        if (strcmp(ssntab[j], var) == 0)
+            return j + 1;
+    return 0;
+}
+
+int main()
+{
+    char line[256], tokens[10][10], macro_name[10];
+    char delim[] = " ,\n";
+    char *ptr;
+    int mdtp = 0, kpdtp = 0, sstp = 0;
+    FILE *f1 = fopen("macro_def.txt", "r");
+    FILE *f2 = fopen("macro_ip.txt", "w");
+    FILE *f3 = fopen("mnt.txt", "w");
+    FILE *f4 = fopen("kpdt.txt", "w");
+    
+    while (fgets(line, sizeof(line), f1))
+    {
+        int i = 0;
+        ptr = strtok(line, delim);
+        while (ptr != NULL)
+        {
+            strcpy(tokens[i++], ptr);
+            ptr = strtok(NULL, delim);
+        }
+        
+        if (strcmp(tokens[0], "MACRO") == 0)
+            continue;
+        else if (strcmp(tokens[0], "LCL") == 0)
+        {
+            strcpy(evtab[ev], tokens[1]);
+            fprintf(f2, "LCL (E,%d)\n", ev + 1);
+            ev++;
+        }
+        else if (strcmp(tokens[1], "SET") == 0)
+        {
+            int e = checkev(tokens[0]);
+            fprintf(f2, "E,%d SET %s\n", e, tokens[2]);
+        }
+        else if (strcmp(tokens[0], "MOVER") == 0)
+        {
+            int p = checkpn(tokens[1]);
+            int e = checkev(tokens[3]);
+            fprintf(f2, "MOVER (P,%d) , (E,%d)\n", p, e);
+        }
+        else if (strcmp(tokens[1], "MOVEM") == 0)
+        {
+            int p1 = checkpn(tokens[2]);
+            int p2 = checkpn(tokens[4]);
+            int e = checkev(tokens[6]);
+            fprintf(f2, "MOVEM (P,%d) (P,%d) + (E,%d)\n", p1, p2, e);
+        }
+        else if (strcmp(tokens[0], "AIF") == 0)
+        {
+            int e = checkev(tokens[1]);
+            int p = checkpn(tokens[3]);
+            int s = checkssn(tokens[4]);
+            fprintf(f2, "AIF (E,%d) %s (P,%d) (S,%d)\n", e, tokens[2], p, s);
+        }
+        else if (strcmp(tokens[0], "MEND") == 0)
+        {
+            fprintf(f2, "MEND\n");
+        }
+        else
+        {
+            strcpy(macro_name, tokens[0]);
+            int pos_count = 0;
+            for (int j = 1; j < i; j++)
+            {
+                if (strcmp(tokens[j], "=") == 0)
+                {
+                    strcpy(kpdtab[kp], tokens[j - 1]);
+                    strcpy(kpdtab[kp + 1], tokens[j + 1]);
+                    kp += 2;
+                    kpdtp++;
+                    continue;
+                }
+                strcpy(pntab[pn], tokens[j]);
+                pn++;
+                pos_count++;
+            }
+            fprintf(f3, "%s %d %d %d %d\n", macro_name, pos_count, kpdtp, ev, sstp);
+            for (int j = 0; j < kp; j += 2)
+                fprintf(f4, "%s %s\n", kpdtab[j], kpdtab[j + 1]);
+        }
+    }
+    fclose(f1);
+    fclose(f2);
+    fclose(f3);
+    fclose(f4);
+    return 0;
+}
+
+
+
+
+===========================================================
+Expected Input (macro_def.txt):
+
+MACRO
+CLEARMEM &X , &N , &REG = AREG
+LCL &M
+&M SET 0
+MOVER &REG , &M
+.MORE MOVEM &REG , &X + &M
+&M SET &M + 1
+AIF &M NE &N .MORE
+MEND
+
+
+Expected Output (macro_ip.txt):
+
+LCL (E,1)
+E,1 SET 0
+MOVER (P,3) , (E,1)
+MOVEM (P,3) (P,1) + (E,1)
+E,1 SET (E,1) + 1
+AIF (E,1) NE (P,2) (S,1)
+MEND
+
+
+======================================
+ALGORITHM:
+Processing of Macro definition:
+    1. SSNTAB_ptr = 1
+PNTAB_ptr = 1
+    2. Process the macro prototype statement and form the MNT entry
+        a. name = macro name
+        b. For each positional parameter
+    i. Enter parameter name in PNTAB[PNTAB_ptr].
+    ii. PNTAB_ptr: =PNTAB_ptr + 1;
+    iii. #PP: = #PP + 1;
+        c. KPDTP: = KPDTAB_ptr;
+        d. For each keyword parameter 
+    i. Enter parameter name and default value of the KPDTAB[KPDTAB_ptr].
+    ii. Enter parameter name in PNTAB[PNTAB_ptr];
+    iii. KPDTAB_ptr: = KPDTAB_ptr + 1;
+    iv. PNTAB_ptr: = PNTAB_ptr + 1;
+    v. #KP: = #KP +1;
+        e. MDTP: = MDT_ptr;
+        f. #EV: = 0;
+        g. SSTP: = SSTAB_ptr;
+    3. While not a MEND statement
+    a. If an LCL statement then
+    i. Enter expansion time variable name in EVNTAB.
+    ii. #EV: = # EV + 1;
+    b. If model statement then
+    i. If label field contains a sequencing symbol then 
+   		If symbol is present in SSNTAB then
+q: = entry number in SSNTAB;
+   		else
+      			 enter symbol in SSNTAB [SSNTAB_ptr];
+q: = SSNTAB_ptr;
+       		SSNTAB_ptr: = SSNTAB_ptr +1;
+      			SSTAB[SSTAB+q-1]: =MDT_ptr;
+    ii. For a parameter, generate the specification (P, #A).
+    iii. For an expansion variable,generate the specification(E,#m)
+    iv. Record the LC in MDT [MDT_ptr];
+    v. MDT_ptr: =MDT_ptr+ 1;
+    c. if a preprocessor statement then
+    i. If a SET statement 
+    		Search each expansion time variable name used in the statement.
+     		EVNTAB and generate the spec (E, #m).
+    ii. If an AIF or AGO statement then
+                	If sequencing symbol used in the statement is present in SSNTAB then
+q: = entry number in SSNTAB;
+q: =SSNTAB;
+                       	Replace the symbol by (S, SSTP+q-1).
+    iii. Record the LC in NOT[NOT_ptr].
+    iv. MDT_ptr: = MDT_ptr +1;
+    4. Processing MEND Statementr
+        a. If SSNTAB_ptr: =1(i.e., SSNTAB is empty) then 
+SSTP =0;
+Else 
+SSTAB_ptr: = SSTAB_ptr+SSNTAB_ptr -1;
+        b. If #KP =0 then KPDTP =0;
+        
+==========================================================================
+==========================================================================
+macro prcess program********************
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+char str1[10][7], str2[10][7];
+
+int checkssn(char var[]) {
+    for (int j = 1; j <= 9; j++) {
+        if (strcmp(str1[j], var) == 0) {
+            strtok(str2[j], "\n");
+            return atoi(str2[j]);
+        }
+    }
+    return 0;
+}
+
+int main() {
+    char ssntab[4][10], var[10][256], var1[4][10], str[10][50], mnt1[10], mnt2[8], kp[3][5];
+    char delim[2] = " ";
+    char *ptr;
+    int sstab[5], mec[50];
+    int i, j = 1, m = 0, x = 0, l = 1, end = 0, b;
+    FILE *f1, *f2, *f3, *f4;
+
+    f1 = fopen("macro_ip.txt", "r");
+    f2 = fopen("macro_ip2.txt", "r");
+    f3 = fopen("kpdt.txt", "r");
+    f4 = fopen("macro_call.txt", "r");
+
+    fscanf(f4, "%s%s%d", mnt1, mnt2, &b);
+
+    for (l = 1; l < 9; l++) {
+        fscanf(f2, "%s%s", str1[l], str2[l]);
+    }
+
+    for (l = 1; l < 2; l++) {
+        fscanf(f3, "%s%s", kp[l], kp[l + 1]);
+    }
+
+    if (strcmp(str1[1], mnt1) != 0) {
+        while (!feof(f1)) {
+            fgets(var[j], sizeof(var[j]), f1);
+            strcpy(str[j], var[j]);
+            j++;
+        }
+        j = 1;
+        while (j < 8) {
+            i = 0;
+            strcpy(var[j], str[j]);
+            ptr = strtok(var[j], delim);
+            while (ptr != NULL) {
+                strcpy(var1[i], ptr);
+                i++;
+                ptr = strtok(NULL, delim);
+            }
+            if (strcmp(var1[0], "LCL") == 0) {
+                mec[x++] = 1;
+            }
+            if (strcmp(var1[1], "SET") == 0) {
+                mec[x++] = 2;
+                if (strcmp(var1[2], "0") == 0)
+                    m = 0;
+                else if (strcmp(var1[4], "1\n") == 0) {
+                    mec[x++] = 5;
+                    m++;
+                }
+            }
+            if (strcmp(var1[0], "MOVER") == 0) {
+                mec[x++] = 3;
+                ptr = strtok(var1[1], ",");
+                ptr = strtok(NULL, " ");
+                if (strcmp(ptr, "3") == 0) {
+                    printf("+MOVER %s,=%d\n", kp[2], m);
+                }
+            }
+            if (strcmp(var1[0], "MOVEM") == 0) {
+                mec[x++] = 4;
+                ptr = strtok(var1[1], ",");
+                ptr = strtok(NULL, " ");
+                if (strcmp(ptr, "3") == 0) {
+                    ptr = strtok(var1[3], ",");
+                    ptr = strtok(NULL, " ");
+                    if (strcmp(ptr, "1") == 0) {
+                        ptr = strtok(var1[5], ",");
+                        if (strcmp(ptr, "E") == 0)
+                            printf("+MOVEM %s, %s+%d\n", kp[2], mnt2, m);
+                    }
+                }
+            }
+            if (strcmp(var1[0], "AIF") == 0) {
+                mec[x++] = 6;
+                ptr = strtok(var1[3], ",");
+                ptr = strtok(NULL, " ");
+                if (strcmp(ptr, "2") == 0) {
+                    if (m < b) {
+                        end = 1;
+                        l++;
+                    } else {
+                        end = 0;
+                    }
+                }
+            }
+            if (end == 0)
+                j++;
+            else if (end == 1) {
+                int ssn = checkssn("sstp");
+                j = ssn;
+                end = 0;
+            }
+        }
+    }
+    fclose(f1);
+    fclose(f2);
+    fclose(f3);
+    fclose(f4);
+    return 0;
+}
+
+
+
+
+
+===================================================
+input file
+
+macro_ip.txt
+
+LCL (E,1)
+E,1 SET 0
+MOVER (P,3) , (E,0)
+MOVEM (P,3) (P,0) + (E,0)
+E,1 SET &M
+AIF (E,1) NE (P,2) (S,0)
+MEND
+MEND
+
+
+
+-----------------------------
+
+macro_ip2.txt
+
+LCL  E,1
+E,1  0
+P,3  3
+P,1  1
+S,1  5
+E,1  1
+P,2  2
+S,2  10
+
+
+----------------------------
+
+macro_call.txt
+
+CLEARMEM AREA, 10, REG=BREG
+
+
+-----------------------
+
+kpdt.txt
+
+&REG AREG
+
+
+
+
+
+--------------------------
+output is 
+
++MOVER BREG = 0
++MOVER BREG AREA + 0
++MOVER BREG AREA + 1
++MOVER BREG AREA + 2
++MOVER BREG AREA + 3
++MOVER BREG AREA + 4
++MOVER BREG AREA + 5
++MOVER BREG AREA + 6
++MOVER BREG AREA + 7
++MOVER BREG AREA + 8
++MOVER BREG AREA + 9
+
+
+
+
+ALGORITHM:
+Processing of Macro Call:
+    1. initialization of variables for the expansion of macro 
+    a. MEC := MDTP field of the MNT entry
+    b. Create EVTAB with #EV entries and set EVTAB_ptr;
+    c. Create APTAB with #PP + # KP entries
+    d. Copy keyword parameter defaults from the entries KPDTAB[KPDTAB]… KPDTAB[KPDTAB +#KP -1]  into  APTAB[#PP +1 ]…APTAB[#PP +# KP]
+    e. Process positional parameters in the actual parameter list and copy them into APTAB[1]…APTAB[#PP].
+    f. For keyword parameters in the actual parameter list 
+    i. Search the keyword name in the parameter name field in KPDTAB[KPDTP]…[KPDTP+#KP-1], Let KPDTAB[q] contains a matching entry.
+    ii. Enter value of the  keyword parameter in the call (if any) in 
+  APTAB[#PP + q – KPDTP + 1].
+    2. While statement pointed by MEC is not MEND statement 
+    a. If a model statement then 
+    i. Replace operands of the form (P,#n) and (E,#m) by values in APTAB[n] and EVTAB[m] respectively.
+    ii. Output the generated statement.
+    iii. MEC = MEC +1 ;
+    b. If a SET statement with a specification ( E,#m ) in the label field then
+    i. Evaluate the expression in the operand field and set an appropriate value in EVTAB[m].
+    ii. MEC:= MEC+1;
+    c. If an AGO statement with (S,#S) in operation field then MEC:=SSTAB[SSTAB+S-1];
+    d. If an AIF statement with (S,#S) in operand field then,
+If condition in the AIF statement is true then MEC:=SSTAB[SSTP +S-1];
+    3. Exit of MACRO expansion.
+
+
