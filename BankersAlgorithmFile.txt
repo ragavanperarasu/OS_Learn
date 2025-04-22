@@ -1,0 +1,232 @@
+/*  BankersAlgorithmFile.java
+    ---------------------------------------------------------------
+    Reads the Banker’s–algorithm data from a text file and writes
+    the safety result (and safe sequence, if any) to another file.
+
+    Input‑file format
+    ---------------------------------------------------------------
+    line‑1 : <numberOfProcesses> <numberOfResources>
+
+    next numberOfProcesses lines  : ALLOCATION matrix
+    next numberOfProcesses lines  : MAXIMUM   matrix
+    final line                    : AVAILABLE vector
+    ---------------------------------------------------------------
+*/
+
+import java.io.*;
+import java.util.StringTokenizer;
+
+public class BankersAlgorithmFile {
+
+    /* =====================  CORE DATA STRUCTURES  ===================== */
+    private final int P;             // #processes
+    private final int R;             // #resource types
+    private final int[] available;   // Available[j]
+    private final int[][] allocation,// Allocation[i][j]
+                      maximum,       // Maximum[i][j]
+                      need;          // Need[i][j] = maximum - allocation
+
+    /* ===========================  CTOR  =========================== */
+    public BankersAlgorithmFile(int p, int r) {
+        P = p; R = r;
+        available = new int[R];
+        allocation = new int[P][R];
+        maximum    = new int[P][R];
+        need       = new int[P][R];
+    }
+
+    /* =======================  FILE INPUT  ======================== */
+    public static BankersAlgorithmFile fromFile(String filename) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+
+            // First line: P R
+            StringTokenizer st = new StringTokenizer(br.readLine());
+            int p = Integer.parseInt(st.nextToken());
+            int r = Integer.parseInt(st.nextToken());
+
+            BankersAlgorithmFile ba = new BankersAlgorithmFile(p, r);
+
+            /* ---- Allocation matrix ---- */
+            for (int i = 0; i < p; i++) {
+                st = new StringTokenizer(br.readLine());
+                for (int j = 0; j < r; j++)
+                    ba.allocation[i][j] = Integer.parseInt(st.nextToken());
+            }
+
+            /* ---- Maximum matrix & Need ---- */
+            for (int i = 0; i < p; i++) {
+                st = new StringTokenizer(br.readLine());
+                for (int j = 0; j < r; j++) {
+                    ba.maximum[i][j] = Integer.parseInt(st.nextToken());
+                    ba.need[i][j]    = ba.maximum[i][j] - ba.allocation[i][j];
+                }
+            }
+
+            /* ---- Available vector ---- */
+            st = new StringTokenizer(br.readLine());
+            for (int j = 0; j < r; j++)
+                ba.available[j] = Integer.parseInt(st.nextToken());
+
+            return ba;
+        }
+    }
+
+    /* =======================  SAFETY TEST  ======================= */
+    public void checkSafety(String outFile) throws IOException {
+        boolean[] finished = new boolean[P];
+        int[] work = available.clone();
+        int[] safeSeq = new int[P];
+        int count = 0;
+
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outFile))) {
+
+            while (count < P) {
+                boolean found = false;
+
+                for (int i = 0; i < P; i++) {
+                    if (finished[i]) continue;
+
+                    if (canAllocate(i, work)) {          // Need[i] ≤ work ?
+                        for (int j = 0; j < R; j++)
+                            work[j] += allocation[i][j]; // release resources
+
+                        safeSeq[count++] = i;
+                        finished[i] = true;
+                        found = true;
+                    }
+                }
+                if (!found) {                            // no allocatable proc
+                    bw.write("System is in an UNSAFE state! Deadlock possible.\n");
+                    return;
+                }
+            }
+
+            /* ------------- SAFE ------------- */
+            bw.write("System is in a SAFE state.\nSafe sequence: ");
+            for (int id : safeSeq) bw.write("P" + id + " ");
+            bw.newLine();
+        }
+    }
+
+    private boolean canAllocate(int proc, int[] work) {
+        for (int j = 0; j < R; j++)
+            if (need[proc][j] > work[j]) return false;
+        return true;
+    }
+
+    /* ============================ MAIN ============================ */
+    public static void main(String[] args) {
+
+        if (args.length != 2) {
+            System.out.println("Usage: java BankersAlgorithmFile <inputFile> <outputFile>");
+            return;
+        }
+
+        String in  = args[0];
+        String out = args[1];
+
+        try {
+            BankersAlgorithmFile ba = BankersAlgorithmFile.fromFile(in);
+            ba.checkSafety(out);
+            System.out.println("Done! Check \"" + out + "\" for the result.");
+        } catch (IOException e) {
+            System.err.println("I/O Error: " + e.getMessage());
+        } catch (NumberFormatException | NullPointerException e) {
+            System.err.println("Malformed input file: " + e.getMessage());
+        }
+    }
+}
+
+
+
+=========================================================
+
+ALGORITHM:
+STEP 1: Start the program.
+STEP 2: Let work and finish be the vertex of length m and n respectively.
+STEP3: Initialise work is equal to available and finish[1] = false for i=0,1,…n-1.
+STEP 4: 
+Find an index  I such that both 
+Finish[i] =false;
+Need[i]<= work;
+If no such I exist,goto step 4.
+Work = work + allocation
+Finish[i] = true
+Goto step 2.
+If finish[i] == true for all I, then the system is in the safe state.
+STEP 5:Request I am the vertex for process pi.
+If request[i] == k,
+if request<= head, goto step 2 otherwise rise an error condition that the process has exceeded its max chain.
+If request <= available, goto step 3, otherwise Pi must wait, since the resource is not available.
+STEP 6:Stop the program.
+
+=======================================================
+
+📄 Sample Input File (sample.txt)
+
+5 3
+0 1 0
+2 0 0
+3 0 2
+2 1 1
+0 0 2
+7 5 3
+3 2 2
+9 0 2
+2 2 2
+4 3 3
+3 3 2
+
+=================================================
+explanation
+
+5 3              ← 5 processes, 3 resource types (A, B, C)
+
+(Allocation Matrix)
+0 1 0            ← P0
+2 0 0            ← P1
+3 0 2            ← P2
+2 1 1            ← P3
+0 0 2            ← P4
+
+(Maximum Matrix)
+7 5 3            ← P0
+3 2 2            ← P1
+9 0 2            ← P2
+2 2 2            ← P3
+4 3 3            ← P4
+
+(Available Vector)
+3 3 2            ← A, B, C
+
+=====================================================
+
+javac BankersAlgorithmFile.java
+java  BankersAlgorithmFile sample.txt result.txt
+cat   result.txt
+
+System is in a SAFE state.
+Safe sequence: P1 P3 P4 P0 P2 
+
+========================================================
+ Key Components:
+Allocation – how many resources each process has now.
+
+Maximum – the maximum resources each process may need.
+
+Available – total resources left in the system.
+
+Need – what each process still needs = Maximum - Allocation.
+
+✅ What does it do?
+The algorithm:
+
+Looks for a process that can finish with the available resources.
+
+If found, it pretends to run it, releases its resources (adds to available), and continues.
+
+If all processes can finish like this, the system is in a safe state.
+
+If not, it's unsafe and could lead to a deadlock ❌.
+
+
