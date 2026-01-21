@@ -1,17 +1,29 @@
 %{
-#include "y.tab.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+void yyerror(const char *s);
+int yylex();
 %}
 
+%token ID NUM ASSIGN PLUS SEMI
+
 %%
-[a-zA-Z_][a-zA-Z0-9_]*   { return ID; }
-[0-9]+                  { return NUM; }
-"="                     { return ASSIGN; }
-"+"                     { return PLUS; }
-";"                     { return SEMI; }
-[ \t\n]                 ;
-.                       { return yytext[0]; }
+program:
+        stmt            { printf("Valid syntax\n"); }
+        ;
+
+stmt:
+        ID ASSIGN expr SEMI
+        ;
+
+expr:
+        ID
+      | NUM
+      | expr PLUS expr
+      ;
 %%
 
-int yywrap() {
-    return 1;
+void yyerror(const char *s) {
+    printf("Syntax error\n");
 }
